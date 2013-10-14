@@ -1,0 +1,93 @@
+; ModuleID = "binSearch.llvm"
+declare i32 @printf(i8*,...)                           ; export the prototype of printf
+
+@msg = constant [9 x i8]  c"got: %d\0A\00"
+@data = constant [37 x i32] [i32 10, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 32, i32 33, i32 34, i32 36, i32 37, i32 38, i32 39, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 49, i32 50]
+
+define i32 @binSearch(i32* %start, i32 %n, i32 %k){
+        entry:
+		;Get the mid point of the array
+		%mid = udiv i32 %n, 2
+		;Get mid value address
+		%ptr = getelementptr i32* %start,i32 %mid
+		;Get mid value from address
+		%midv = load i32* %ptr             
+	br label %checkeq
+
+	checkeq:
+		;Check if %mid = %k, if so, return
+		%equal = icmp eq i32 %midv, %k
+	br i1 %equal, label %return, label %checkn
+
+	checkn:
+		;Check if %n = 1, if so that means there is nowhere left to search return -1
+		%nis1 = icmp eq i32 %n, 1
+	br i1 %nis1, label %return, label %checkgtlt
+
+	checkgtlt:
+		;If %k > %midv, go to gt branch, if it's < then go to lt branch
+		%gtlt = icmp ugt i32 %k, %midv
+	br i1 %gtlt, label %gt, label %lt
+
+	gt:
+		;New starting position will be %mid + 1
+		%t0 = add i32 %mid, 1
+		;Get ptr to new start
+		%gnewstart = getelementptr i32* %start, i32 %t0
+		;New number of elements will be %mid -1
+		%t1 = sub i32 %mid, 1
+		;next line is probably not needed
+		%gnewn = sub i32 %n, %t1
+		;Recursively call search on the new array
+                %gcall = call i32 @binSearch(i32* %gnewstart, i32 %gnewn, i32 %k) 
+        br label %gtcheck
+
+	;The next few labels could probably be condensed, but it's a little easier to handle this way
+	gtcheck:
+		;If the recursive call returns -1, go to gtno, else go to gtyes
+		%gcheck = icmp eq i32 %gcall, -1
+	br i1 %gcheck, label %gtno, label %gtyes
+
+	gtno:
+	;To make the phi easier
+	br label %return
+
+	gtyes:
+		;Not sure if this is needed or not, it's either add 1 or not, need to test
+		;because of shifting the mid point to make the new array
+		%t2 = add i32 %mid, 1
+		;Add %gcall to %mid (+1 maybe) to preserve the position
+		%gtret = add i32 %gcall, %t2
+	br label %return
+	
+	lt:
+		;New %n is %n-1
+		%lnewn = sub i32 %mid, 1
+		;Call recursively on the new array
+                %lcall = call i32 @binSearch(i32* %start, i32 %lnewn, i32 %k)  
+	br label %ltcheck
+
+	ltcheck:
+		;If you get a -1 go to ltno else goto ltyes
+		%lcheck = icmp eq i32 %lcall, -1
+	br i1 %lcheck, label %ltno, label %ltyes
+
+	;These probably aren't needed
+	ltno:
+	br label %return
+
+	ltyes:
+	br label %return
+
+
+	return:
+		%retv = phi i32 [%mid, %checkeq], [-1, %checkn], [%gcall, %gtno], [%gtret, %gtyes], [%lcall, %ltyes], [%lcall, %ltno]
+		ret i32 %retv
+}
+
+define i32 @main() {
+	%t0 = bitcast [37 x i32]* @data to i32*
+	%t1 = call i32 @binSearch(i32* %t0,i32 37,i32 49)
+	%t2 = call i32(i8*,...)* @printf(i8* bitcast ([9 x i8]* @msg to i8*),i32 %t1)
+	ret i32 %t1
+}
